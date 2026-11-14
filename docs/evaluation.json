@@ -1,0 +1,72 @@
+{
+  "dataset_rows": 414,
+  "split": {
+    "train": 264,
+    "validation": 67,
+    "test": 83
+  },
+  "seed": 42,
+  "target_unit": "10,000 TWD per ping",
+  "selection_metric": "validation MAE",
+  "models": {
+    "mean": {
+      "name": "Mean predictor",
+      "validation": {
+        "mae": 9.91252261420172,
+        "rmse": 13.043482195258855,
+        "r2": -0.03715910281672086
+      },
+      "test": {
+        "mae": 10.997220700985762,
+        "rmse": 13.201137979548974,
+        "r2": -0.038807280336879746
+      }
+    },
+    "A": {
+      "name": "Linear regression",
+      "validation": {
+        "mae": 6.055325590674557,
+        "rmse": 7.778794811588076,
+        "r2": 0.6311218631354207
+      }
+    },
+    "B": {
+      "name": "Shallow network",
+      "validation": {
+        "mae": 5.885710440109025,
+        "rmse": 8.088598387258466,
+        "r2": 0.6011543783333511
+      },
+      "test": {
+        "mae": 6.206290670188078,
+        "rmse": 8.376452000494458,
+        "r2": 0.581753368084569
+      }
+    },
+    "C": {
+      "name": "Two hidden layers",
+      "validation": {
+        "mae": 7.793029625736067,
+        "rmse": 12.557125993787244,
+        "r2": 0.03874461085406167
+      }
+    },
+    "D": {
+      "name": "Wide hidden layer",
+      "validation": {
+        "mae": 7.602575666513016,
+        "rmse": 10.988389792798806,
+        "r2": 0.2639176612221351
+      }
+    },
+    "E": {
+      "name": "Three hidden layers",
+      "validation": {
+        "mae": 8.51270583423216,
+        "rmse": 16.58551862021214,
+        "r2": -0.6769356457886913
+      }
+    }
+  },
+  "selected_model": "B"
+}

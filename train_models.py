@@ -1,213 +1,144 @@
-import torch
-import torch.nn as nn
-import pandas as pd
+"""Train and evaluate five PyTorch regressors on UCI Real Estate Valuation."""
+
+import json
+import os
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
+import torch
+from sklearn.dummy import DummyRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-import os
+from torch import nn
 
-# Set random seed for reproducibility
-torch.manual_seed(42)
-np.random.seed(42)
+ROOT = Path(__file__).resolve().parent
+DATA_PATH = Path(os.environ.get("DATASET_PATH", ROOT / "data" / "houses.csv"))
+MODEL_PATH = Path(os.environ.get("MODEL_DIR", ROOT / "models"))
+FEATURES = ("date", "age", "distance", "stores", "latitude", "longitude")
+UNIT = "10,000 TWD per ping"
+SEED = 42
+ARCHITECTURES = {
+    "A": ("Linear regression", (), 0.01),
+    "B": ("Shallow network", (16,), 0.01),
+    "C": ("Two hidden layers", (32, 16), 0.01),
+    "D": ("Wide hidden layer", (64,), 0.01),
+    "E": ("Three hidden layers", (64, 32, 16), 0.005),
+}
 
-DATA_PATH = os.environ.get("DATASET_PATH", os.path.join(os.path.dirname(__file__), "data", "houses.csv"))
-MODEL_SAVE_PATH = os.environ.get("MODEL_DIR", os.path.join(os.path.dirname(__file__), "models"))
 
-if not os.path.exists(MODEL_SAVE_PATH):
-    os.makedirs(MODEL_SAVE_PATH)
+def make_model(hidden_dims):
+    layers = []
+    input_dim = len(FEATURES)
+    for output_dim in hidden_dims:
+        layers.extend([nn.Linear(input_dim, output_dim), nn.ReLU()])
+        input_dim = output_dim
+    return nn.Sequential(*layers, nn.Linear(input_dim, 1))
 
-def load_and_preprocess_data():
-    print("Loading data...")
-    # Read CSV with inferred columns based on previous analysis
-    # Columns: serial, date, age, distance, stores, latitude, longitude, price
-    df = pd.read_csv(DATA_PATH)
-    
-    # Assign column names if not present (assuming the file has no header based on previous `cat` output)
-    # The user's notebook output showed these columns for 'data.csv', assuming 'Data_Set.csv' is the same format.
-    # We saw '0,2009,21,9,6,84,121,14264' in existing file, which matches the notebook's head().
-    df.columns = ['serial', 'date', 'age', 'distance', 'stores', 'latitude', 'longitude', 'price']
-    
-    # Drop serial as it's an ID
-    df = df.drop('serial', axis=1)
-    
-    X = df[['date', 'age', 'distance', 'stores', 'latitude', 'longitude']].values
-    y = df['price'].values.reshape(-1, 1)
-    
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Normalize features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    # Convert to PyTorch tensors
-    X_train_tensor = torch.FloatTensor(X_train_scaled)
-    y_train_tensor = torch.FloatTensor(y_train)
-    X_test_tensor = torch.FloatTensor(X_test_scaled)
-    y_test_tensor = torch.FloatTensor(y_test)
-    
-    print(f"Data loaded. Train shape: {X_train_tensor.shape}, Test shape: {X_test_tensor.shape}")
-    return X_train_tensor, y_train_tensor, X_test_tensor, y_test_tensor, scaler
 
-# Define Models
-class ModelA(nn.Module): # Linear Regression (Baseline)
-    def __init__(self, input_dim):
-        super(ModelA, self).__init__()
-        self.linear = nn.Linear(input_dim, 1)
-        
-    def forward(self, x):
-        return self.linear(x)
-
-class ModelB(nn.Module): # Shallow NN
-    def __init__(self, input_dim):
-        super(ModelB, self).__init__()
-        self.hidden = nn.Linear(input_dim, 16)
-        self.relu = nn.ReLU()
-        self.output = nn.Linear(16, 1)
-        
-    def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.output(x)
-        return x
-
-class ModelC(nn.Module): # Deep NN
-    def __init__(self, input_dim):
-        super(ModelC, self).__init__()
-        self.hidden1 = nn.Linear(input_dim, 32)
-        self.relu1 = nn.ReLU()
-        self.hidden2 = nn.Linear(32, 16)
-        self.relu2 = nn.ReLU()
-        self.output = nn.Linear(16, 1)
-        
-    def forward(self, x):
-        x = self.hidden1(x)
-        x = self.relu1(x)
-        x = self.hidden2(x)
-        x = self.relu2(x)
-        return self.output(x)
-
-class ModelD(nn.Module): # Wider NN
-    def __init__(self, input_dim):
-        super(ModelD, self).__init__()
-        self.hidden = nn.Linear(input_dim, 64)
-        self.relu = nn.ReLU()
-        self.output = nn.Linear(64, 1)
-        
-    def forward(self, x):
-        x = self.hidden(x)
-        x = self.relu(x)
-        x = self.output(x)
-        return x
-
-class ModelE(nn.Module): # Deeper NN (3 Hidden Layers)
-    def __init__(self, input_dim):
-        super(ModelE, self).__init__()
-        self.hidden1 = nn.Linear(input_dim, 64)
-        self.relu1 = nn.ReLU()
-        self.hidden2 = nn.Linear(64, 32)
-        self.relu2 = nn.ReLU()
-        self.hidden3 = nn.Linear(32, 16)
-        self.relu3 = nn.ReLU()
-        self.output = nn.Linear(16, 1)
-        
-    def forward(self, x):
-        x = self.hidden1(x)
-        x = self.relu1(x)
-        x = self.hidden2(x)
-        x = self.relu2(x)
-        x = self.hidden3(x)
-        x = self.relu3(x)
-        return self.output(x)
-
-def manual_train(model, optimizer, X_train, y_train, epochs=1000):
-    model.train()
+def train(model, features, target, learning_rate, epochs=1000):
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     loss_fn = nn.MSELoss()
-    
-    for epoch in range(epochs):
-        # 1. Forward pass
-        predictions = model(X_train)
-        loss = loss_fn(predictions, y_train)
-        
-        # 2. Manual Gradient Calculation Steps
-        optimizer.zero_grad() # Clear previous gradients
-        loss.backward()       # Compute gradients (Chain Rule)
-        optimizer.step()      # Update weights
-        
-        if (epoch+1) % 100 == 0:
-            print(f"Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}")
-            
-    return model
+    for _ in range(epochs):
+        optimizer.zero_grad()
+        loss = loss_fn(model(features), target)
+        loss.backward()
+        optimizer.step()
+    return model.eval()
 
-def evaluate(model, X_test, y_test):
-    model.eval()
-    with torch.no_grad():
-        predictions = model(X_test)
-        loss_fn = nn.MSELoss()
-        loss = loss_fn(predictions, y_test)
-    return loss.item()
+
+@torch.inference_mode()
+def predict(model, features):
+    return model(features).flatten().numpy()
+
+
+def metrics(actual, predicted):
+    return {
+        "mae": float(mean_absolute_error(actual, predicted)),
+        "rmse": float(mean_squared_error(actual, predicted) ** 0.5),
+        "r2": float(r2_score(actual, predicted)),
+    }
+
 
 def main():
-    X_train, y_train, X_test, y_test, scaler = load_and_preprocess_data()
-    input_dim = X_train.shape[1]
-    
-    results = {}
-    
-    # Train Model A
-    print("\nTraining Model A (Linear Regression)...")
-    model_a = ModelA(input_dim)
-    opt_a = torch.optim.Adam(model_a.parameters(), lr=0.01)
-    train_a = manual_train(model_a, opt_a, X_train, y_train)
-    loss_a = evaluate(train_a, X_test, y_test)
-    results['Model A'] = loss_a
-    torch.save(model_a.state_dict(), os.path.join(MODEL_SAVE_PATH, 'model_a.pth'))
-    
-    # Train Model B
-    print("\nTraining Model B (Shallow NN)...")
-    model_b = ModelB(input_dim)
-    opt_b = torch.optim.Adam(model_b.parameters(), lr=0.01)
-    train_b = manual_train(model_b, opt_b, X_train, y_train)
-    loss_b = evaluate(train_b, X_test, y_test)
-    results['Model B'] = loss_b
-    torch.save(model_b.state_dict(), os.path.join(MODEL_SAVE_PATH, 'model_b.pth'))
+    torch.set_num_threads(1)
+    torch.use_deterministic_algorithms(True)
+    frame = pd.read_csv(DATA_PATH)
+    if not set((*FEATURES, "price")).issubset(frame.columns) and len(frame.columns) == 8:
+        frame.columns = ["serial", *FEATURES, "price"]
+    features = frame[list(FEATURES)].to_numpy(dtype=float)
+    target = frame["price"].to_numpy(dtype=float)
+    if not np.isfinite(features).all() or not np.isfinite(target).all():
+        raise ValueError("Training data must contain finite numeric values.")
 
-    # Train Model C
-    print("\nTraining Model C (Deep NN)...")
-    model_c = ModelC(input_dim)
-    opt_c = torch.optim.Adam(model_c.parameters(), lr=0.01) # Slightly lower LR for deep net logic often involves tuning, but 0.01 is standard
-    train_c = manual_train(model_c, opt_c, X_train, y_train)
-    loss_c = evaluate(train_c, X_test, y_test)
-    results['Model C'] = loss_c
-    torch.save(model_c.state_dict(), os.path.join(MODEL_SAVE_PATH, 'model_c.pth'))
+    # Freeze the test split before training or picking a model.
+    dev_x, test_x, dev_y, test_y = train_test_split(
+        features, target, test_size=0.20, random_state=SEED
+    )
+    train_x, val_x, train_y, val_y = train_test_split(
+        dev_x, dev_y, test_size=0.20, random_state=SEED
+    )
+    scaler = StandardScaler().fit(train_x)
+    train_tensor = torch.tensor(scaler.transform(train_x), dtype=torch.float32)
+    val_tensor = torch.tensor(scaler.transform(val_x), dtype=torch.float32)
+    test_tensor = torch.tensor(scaler.transform(test_x), dtype=torch.float32)
+    target_tensor = torch.tensor(train_y[:, None], dtype=torch.float32)
+    target_mean = float(train_y.mean())
+    target_scale = float(train_y.std()) or 1.0
+    target_tensor = (target_tensor - target_mean) / target_scale
+    baseline = DummyRegressor(strategy="mean").fit(train_x, train_y)
 
-    # Train Model D
-    print("\nTraining Model D (Wider NN)...")
-    model_d = ModelD(input_dim)
-    opt_d = torch.optim.Adam(model_d.parameters(), lr=0.01)
-    train_d = manual_train(model_d, opt_d, X_train, y_train)
-    loss_d = evaluate(train_d, X_test, y_test)
-    results['Model D'] = loss_d
-    torch.save(model_d.state_dict(), os.path.join(MODEL_SAVE_PATH, 'model_d.pth'))
+    report = {
+        "dataset_rows": len(frame),
+        "split": {"train": len(train_y), "validation": len(val_y), "test": len(test_y)},
+        "seed": SEED,
+        "target_unit": UNIT,
+        "selection_metric": "validation MAE",
+        "models": {
+            "mean": {"name": "Mean predictor", "validation": metrics(val_y, baseline.predict(val_x))}
+        },
+    }
+    trained = {}
+    for code, (name, hidden_dims, learning_rate) in ARCHITECTURES.items():
+        torch.manual_seed(SEED)
+        model = train(make_model(hidden_dims), train_tensor, target_tensor, learning_rate)
+        trained[code] = model
+        report["models"][code] = {
+            "name": name,
+            "validation": metrics(val_y, predict(model, val_tensor) * target_scale + target_mean),
+        }
 
-    # Train Model E
-    print("\nTraining Model E (Deeper NN)...")
-    model_e = ModelE(input_dim)
-    opt_e = torch.optim.Adam(model_e.parameters(), lr=0.005) # Lower LR for deeper network
-    train_e = manual_train(model_e, opt_e, X_train, y_train)
-    loss_e = evaluate(train_e, X_test, y_test)
-    results['Model E'] = loss_e
-    torch.save(model_e.state_dict(), os.path.join(MODEL_SAVE_PATH, 'model_e.pth'))
-    
-    # Save Scaler for Web App
-    import joblib
-    joblib.dump(scaler, os.path.join(MODEL_SAVE_PATH, 'scaler.pkl'))
-    
-    print("\n--- Final Results (Test MSE) ---")
-    print(f"{'Model':<20} | {'Test MSE':<15}")
-    print("-" * 35)
-    for model_name, loss in results.items():
-        print(f"{model_name:<20} | {loss:.4f}")
+    selected = min(trained, key=lambda code: report["models"][code]["validation"]["mae"])
+    report["selected_model"] = selected
+    report["models"]["mean"]["test"] = metrics(test_y, baseline.predict(test_x))
+    report["models"][selected]["test"] = metrics(
+        test_y, predict(trained[selected], test_tensor) * target_scale + target_mean
+    )
+    MODEL_PATH.mkdir(parents=True, exist_ok=True)
+    demo_dir = ROOT / "docs"
+    demo_dir.mkdir(exist_ok=True)
+    export = {
+        "features": FEATURES,
+        "mean": scaler.mean_.tolist(),
+        "scale": scaler.scale_.tolist(),
+        "target_mean": target_mean,
+        "target_scale": target_scale,
+        "selected_model": selected,
+        "models": {},
+    }
+    for code, model in trained.items():
+        torch.save(model.state_dict(), MODEL_PATH / f"model_{code.lower()}.pth")
+        export["models"][code] = [
+            {"weight": layer.weight.detach().tolist(), "bias": layer.bias.detach().tolist()}
+            for layer in model
+            if isinstance(layer, nn.Linear)
+        ]
+
+    (demo_dir / "models.json").write_text(json.dumps(export, separators=(",", ":")) + "\n", encoding="utf-8")
+    (demo_dir / "evaluation.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
 
 if __name__ == "__main__":
     main()

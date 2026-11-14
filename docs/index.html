@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>House Price Predictor</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #212529;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 620px;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3);
+        }
+
+        .result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f1f3f5;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+
+        }
+            body { padding: 1rem; box-sizing: border-box; }
+        .container { box-sizing: border-box; }
+        .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
+        button:disabled { opacity: .65; cursor: wait; }
+        #status:empty { display: none; }
+        #benchmark { font-size: .9rem; }
+        .result small { font-size: .85em; font-weight: normal; }
+        @media (max-width: 420px) { .fields { grid-template-columns: 1fr; } }
+    </style>
+</head>
+
+
+<body>
+    <main class="container">
+        <h1>House Price Predictor</h1>
+        <p>Explore price per unit area using historical sales from New Taipei City, Taiwan.</p>
+        <form id="prediction">
+            <div class="form-group">
+                <label for="model_type">Regression model</label>
+                <select id="model_type" name="model_type"></select>
+            </div>
+            <div class="fields">
+                <div class="form-group">
+                    <label for="date">Transaction year</label>
+                    <input type="number" id="date" name="date" value="2012.917" step="any" min="2012.667" max="2013.583" required>
+                </div>
+                <div class="form-group">
+                    <label for="age">Property age (years)</label>
+                    <input type="number" id="age" name="age" value="32" step="any" min="0" max="44" required>
+                </div>
+                <div class="form-group">
+                    <label for="distance">Distance to MRT (m)</label>
+                    <input type="number" id="distance" name="distance" value="84.87882" step="any" min="0" max="6500" required>
+                </div>
+                <div class="form-group">
+                    <label for="stores">Nearby stores</label>
+                    <input type="number" id="stores" name="stores" value="10" min="0" max="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="latitude">Latitude</label>
+                    <input type="number" id="latitude" name="latitude" value="24.98298" step="any" min="24.93" max="25.02" required>
+                </div>
+                <div class="form-group">
+                    <label for="longitude">Longitude</label>
+                    <input type="number" id="longitude" name="longitude" value="121.54024" step="any" min="121.47" max="121.57" required>
+                </div>
+            </div>
+            <button type="submit" disabled>Estimate price</button>
+        </form>
+        <p id="status" role="status"></p>
+        <div id="result" class="result" aria-live="polite" hidden>
+            <span id="priceValue"></span> <small>× NT$10,000 per ping</small>
+        </div>
+        <p id="benchmark"></p>
+        <p>This demo estimates historical prices in the source area. One ping is about 3.3 m².</p>
+        <p><a href="https://github.com/Metwally99/house-price-ml">Source code and methodology</a> · <a href="./evaluation.json">Evaluation results</a></p>
+    </main>
+    <script src="./demo.js" defer></script>
+</body>
+</html>
